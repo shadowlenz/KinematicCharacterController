@@ -14,6 +14,6 @@ Notices:
 
 - This cc has an InputMove() method in the motor script that you can disable or delete as it only serves as a demo to start. Otherwise call any moves formula within the Move() method.
 - This cc should be treated like Unity's character controller as it does not automatically fall if you walk off the edge. It's up to you to make the velocity. 
-- Because this controller uses substeps. Going super fast may not interact with other rigidbodies correctly. It's a trade off since if I would make this controller using rb.MovePosition(), it would not properly collide with obsticles and/or vibrate to reposition itself again because it gets called per FixedUpdate. 
+- Because this controller uses substeps to guarantee collision hits and not phasing thru. Going super fast may not interact with other rigidbodies correctly. It's a trade off since if this controller uses rb.MovePosition(), it would not properly collide with wall obsticles, goes thru hill slopes on high speed, and/or vibrate to reposition itself again because it gets called per FixedUpdate.
 
 https://twitter.com/LenZ_Chu/status/1388902584191180803
