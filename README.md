@@ -21,6 +21,6 @@ https://twitter.com/LenZ_Chu/status/1388902584191180803
 
 
 Final Thoughts:
- <br/> I rlly wanna impose that it is 'kinematic' because it holds a rigidbody kinematic to interact with others. But it holds interpolation for physics. It may brush off physic objs if you move too fast or cornering it. To fix that solution for gameplay pushable boxes, I suggest making a script with Phyx.ComputePenetration yourself to push back the character.
-  <br/>I'm making this controller move per frame and having substeps within that frame. As if I'm moving its transform.position or rb.position multiple times to check for collisions. You can also unlock 'use kinematic' on the rigidbody for forces to push you too in that sense.
+ <br/> <br/> I rlly wanna impose that it is 'kinematic' because it holds a rigidbody kinematic to interact with others. So it doesn't not interpolates for physics. It may brush off physic objs if you move too fast or cornering them. To have that merit for gameplay pushable boxes, I suggest making a script with Phyx.ComputePenetration on the box yourself to push back the character.
+  <br/> <br/>I'm making this controller move per frame and having substeps within that frame. As if I'm moving its transform.position or rb.position multiple times to check for collisions. You can also unlock 'use kinematic' on the rigidbody for forces to push you too in that sense.
 <br/> <br/> You may use this freely and hopefully it be useful. I appreciate a credit if possible  :3
