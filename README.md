@@ -20,6 +20,6 @@ Preview:
 https://twitter.com/LenZ_Chu/status/1388902584191180803
 
 
-Final Thoughts
-  I rlly wanna impose that it is 'kinematic' because it holds a rigidbody kinematic to interact with others. I'm making this controller move per frame and having substeps within that frame. As if I'm moving it transform.position or rb.position per steps to check for colliders. You can also unlock 'use kinematic' on the rigidbody for forces to push you too in that sense.
-  You may use this freely and hopefully share the knowledge. I appreciate a credit if possible  :3
+Final Thoughts:
+ <br/> I rlly wanna impose that it is 'kinematic' because it holds a rigidbody kinematic to interact with others. I'm making this controller move per frame and having substeps within that frame. As if I'm moving it transform.position or rb.position per steps to check for colliders. You can also unlock 'use kinematic' on the rigidbody for forces to push you too in that sense.
+<br/> <br/> You may use this freely and hopefully it be useful. I appreciate a credit if possible  :3
