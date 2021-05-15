@@ -1,5 +1,5 @@
 # LenZ's KinematicCharacterController
-My own custom character controller. It uses substeps technique to detect collisions
+My own Unity custom character controller. It uses substeps technique to detect collisions
 
 Features:
 
