@@ -28,7 +28,8 @@ Limitations:
 
 <br/> <br/>
 Final Thoughts:
- - I rlly wanna impose that it is 'kinematic' only because it holds a rigidbody to interact with physics obj. Because this controller moves with many samplings per frame, it doesn't interpolates for physics and may brush off physic objs or phase thru them if you move too fast or cornering them. it's like using transform.position or rb.position multiple times to check for collisions.
+ - I rlly wanna impose that it is 'kinematic' only because it holds a rigidbody to interact with physics obj. Because this controller moves with many samplings per frame, it doesn't interpolates for physics and may brush off physic objs or phase thru them if you move too fast or cornering them. it's like using transform.position or rb.position multiple times to check for collisions. So I do not reccommend to use physics as a gameplay element using this controller other than astetics. 
+ - To make the controller interact with rigidbodies, set their layers other than the obsticle layers.
  - You can also set true to 'use kinematic' on the rigidbody for forces to push against you.
  - As I'm making this, I discovered this wizard here points out the limitations of what my controller has and why Unity needs better tools to detect colliders.  Here's some a link for further readings. https://forum.unity.com/threads/dotsphysics-features-i-wish-i-had-in-monobehaviour-physics-physx.1057004/
 <br/> <br/> You may use this freely and hopefully it be useful  :3
