@@ -45,7 +45,7 @@ GameObject:
   - component: {fileID: 15936664751082322}
   - component: {fileID: 546923499777113397}
   - component: {fileID: 2082402433}
-  m_Layer: 2
+  m_Layer: 0
   m_Name: Player LenZ Package
   m_TagString: Untagged
   m_Icon: {fileID: 0}
