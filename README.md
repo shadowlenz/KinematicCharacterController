@@ -1,5 +1,8 @@
 # LenZ's KinematicCharacterController
 My own Unity custom character controller. It uses substeps technique to detect collisions.
+ <br/> <br/>
+Requirement:
+- Needs the new Unity Input System in their package manager
 
  <br/> <br/>
 Features:
