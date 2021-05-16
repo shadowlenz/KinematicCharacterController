@@ -277,7 +277,7 @@ public class kinemRbMotor : MonoBehaviour
        // {
             if (dirMoveSmooth != Vector3.zero)
             {
-                rb.rotation = Quaternion.Lerp(rb.rotation, Quaternion.LookRotation(dirMoveSmooth, transform.up), Time.fixedDeltaTime * 20);
+                rb.rotation = Quaternion.Lerp(rb.rotation, Quaternion.LookRotation(dirMoveSmooth, -gravityDir), Time.fixedDeltaTime * 20);
             }
        // }
     }
