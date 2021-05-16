@@ -96,7 +96,7 @@ public class kinemRbMotor : MonoBehaviour
         //=========
         isGrounded = nearestGroundHit.collider != null;
         //=== normal fix ==//
-        if (nearestGroundHit.collider != null) hitNormalsFixed = RepairHitSurfaceNormal(nearestGroundHit, obsticleLayer);
+        if (nearestGroundHit.collider != null) hitNormalsFixed = RepairHitSurfaceNormal(nearestGroundHit);
         else hitNormalsFixed = -gravityDir;
     }
 
@@ -292,7 +292,7 @@ public class kinemRbMotor : MonoBehaviour
     /// if spherecast or capsule cast hits an edge of the box, it interpolates the normals. use this to get the correct normal
     /// </summary>
     /// <returns></returns>
-    public Vector3 RepairHitSurfaceNormal(RaycastHit hit, int layerMask)
+    public Vector3 RepairHitSurfaceNormal(RaycastHit hit)
     {
         /*
         if (hit.collider is MeshCollider && (hit.collider as MeshCollider).sharedMesh.isReadable)
