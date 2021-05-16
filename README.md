@@ -18,7 +18,8 @@ Features:
 Notices:
 - This cc has an InputMove() method in the motor script that you can disable or delete as it only serves as a demo to start. Otherwise call any moves formula within the Move() method.
 - This cc should be treated like Unity's character controller as it does not automatically fall if you walk off the edge. It's up to you to make the velocity. 
-- Because this controller uses substeps to guarantee collision hits and not phasing thru. Going super fast may not interact with other rigidbodies correctly. It's a trade off since if this controller uses rb.MovePosition(), it would not properly collide with wall obsticles, goes thru hill slopes on high speed, and/or vibrate to reposition itself again because it gets called per FixedUpdate.
+- Because this controller uses substeps to guarantee collision hits and not phasing thru. Going super fast may not interact with other rigidbodies correctly. It's a trade off since if this controller uses rb.MovePosition(), it would not properly collide with wall obsticles, goes thru hill slopes at high speed, and/or vibrate to reposition itself  because it gets called per FixedUpdate.
+- To make the controller interact with rigidbodies, set their layers other than the obsticle layers. Due to the conflict logic of compute penetration obsticles or not.
 
 <br/> <br/>
 Preview:
@@ -32,7 +33,6 @@ Limitations:
 <br/> <br/>
 Final Thoughts:
  - I rlly wanna impose that it is 'kinematic' only because it holds a rigidbody to interact with physics obj. Because this controller moves with many samplings per frame, it doesn't interpolates for physics and may brush off physic objs or phase thru them if you move too fast or cornering them. it's like using transform.position or rb.position multiple times to check for collisions. So I do not reccommend to use physics as a gameplay element using this controller other than astetics. 
- - To make the controller interact with rigidbodies, set their layers other than the obsticle layers.
  - You can also set true to 'use kinematic' on the rigidbody for forces to push against you.
  - As I'm making this, I discovered this wizard here points out the limitations of what my controller has and why Unity needs better tools to detect colliders.  Here's some a link for further readings. https://forum.unity.com/threads/dotsphysics-features-i-wish-i-had-in-monobehaviour-physics-physx.1057004/
 <br/> <br/> You may use this freely and hopefully it be useful  :3
