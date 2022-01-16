@@ -6,325 +6,327 @@ using System.Linq;
 [RequireComponent(typeof(Rigidbody))]
 public class kinemRbMotor : MonoBehaviour
 {
-    public CapsuleCollider cc;
-    public Rigidbody rb;
-    public LayerMask obsticleLayer;
-    public InputReciever inputReciever;
 
-    private void OnDrawGizmos()
-    {
-        Gizmos.color = Color.blue;
-        Gizmos.DrawWireSphere(rb.position+(transform.up * cc.radius) +(gravityDir * addedDistance), cc.radius);
-        if (nearestGroundHit.collider!= null)  Gizmos.DrawSphere(nearestGroundHit.point, 0.04f);
-    }
+    public Rigidbody rb;
+
+
+    public CapsuleCollider cc;
+
+    [Space()]
+    [Tooltip("calculate x amount of substeps before reaching the destination")]
+    public int subStepSample = 8;
+    [Tooltip("calculate x amount of times that pushes away from the collider")]
+    public int collisionSample = 8;
+    [Header("correction")]
+    public float terrainCollisionOffset = 0.05f;
+    public float minJitter = 0.02f;
+
+    [Header("ground ray")]
+    public bool ActiveSnapToGround = true;
+    public float groundRayDist = 1;
+    [Space()]
+    public Vector3 gravityDir = -Vector3.up;
+    RaycastHit groundHit;
+
+
+    [Range(0, 180)]
+    [Tooltip("turn off by setting it to 0")]
+    public float minAngle = 50f;
+
+ 
+
     private void OnEnable()
     {
         if (PlatformingDelta_C != null) StopCoroutine(PlatformingDelta_C);
         PlatformingDelta_C = StartCoroutine(PlatformingDelta());
     }
 
-
-
-    Vector3 MoveRequested;
-    /// <summary>
-    /// call move vector here
-    /// </summary>
-    public void Move(Vector3 _move)
+    private void OnDestroy()
     {
-        MoveRequested += _move;
+        if (platformingTr != null) Destroy(platformingTr.gameObject);
     }
 
-    private void FixedUpdate()
+    public void Update()
     {
-        InputControls(); //remove this for ur own custom inputs
 
-        // =========== move substeps =============//
-        int totalSubSteps = 10;
-        Vector3 _MoveRequest = MoveRequested/ totalSubSteps;
+    }
+    public void Move(Vector3 velocity)
+    {
+       // if (velocity.magnitude <= 0.001f) return;
+        Vector3 ModifyPos = cc.transform.position;
+  
 
-        //substep
-        for (int i = 0; i < totalSubSteps; i++)
+        //------ substeps frame --------//
+        for (int i = 0; i < subStepSample; i++)
         {
-            CollisionLogic(rb.position);
+            //splice velocity into substeps
+            Vector3 VelocitySubStep = (velocity / subStepSample);
 
-            _MoveRequest = SlopeLimitation(_MoveRequest);
-            Vector3 _move = _MoveRequest + GroundSnap();
+            //ground check
+            GroundCheck(ModifyPos, ref groundHit);
+            bool _isGrounded = groundHit.collider != null;
 
-            float per =(float) i+1 / (float)totalSubSteps;
-            Vector3 stepMove = Vector3.Lerp(rb.position, _move, per);
-            Vector3 _depenetration = ComputePenetrate(stepMove);
-            rb.position = stepMove+_depenetration;
-        }
-
-        //============== move with rb movePosition ================ 
-        /*
-        CollisionLogic(rb.position);
-
-        Vector3 _move = MoveRequested + GroundSnap();
-        _move += ComputePenetrate(_move);
-        rb.MovePosition(_move);
-        
-        */
-        //==========================
-        MoveRequested = Vector3.zero;
-    }
-
-
-    public float addedDistance = 1;
-    RaycastHit[] grounderHits;
-    RaycastHit nearestGroundHit;
-    Vector3 hitNormalsFixed;
-
-    public bool isGrounded;
-
-    public float skinOffset = 0.08f;
-
-
-
-    void CollisionLogic(Vector3 _pos)
-    {
-        //gather collision data
-
-           Physics.CapsuleCast(_pos + (transform.up *cc.radius),
-              _pos + (transform.up *(cc.height -cc.radius) ), cc.radius-0.005f ,gravityDir, out nearestGroundHit, addedDistance+ 0.005f, obsticleLayer, QueryTriggerInteraction.Ignore);
-
-
-        //===========
-        // if (nearestGroundHit.collider != null) rb.position += -gravityDir * 0.05f; //forcing it to have some space between the floor, cause I dunno why. TIRED OF UR bullSHIT UNITY 
-        // rb.SweepTest(gravityDir,out nearestGroundHit, addedDistance, QueryTriggerInteraction.Ignore);
-
-        //=========
-        isGrounded = nearestGroundHit.collider != null;
-        //=== normal fix ==//
-        if (nearestGroundHit.collider != null) hitNormalsFixed = RepairHitSurfaceNormal(nearestGroundHit);
-        else hitNormalsFixed = -gravityDir;
-    }
-
-    Vector3 GroundSnap()
-    {
-   
-        Vector3 _requestMovePosition = rb.position ;
-        // ========= ground snap ==================//
-        /*
-     //only snaps to the center pivot of the transform. doesn't work well on other corners of the capsule
-
-     if (nearestGroundHit.collider != null)
-     {
-         Vector3 hitPoint = nearestGroundHit.point;
-
-         Vector3 groundSnapDir = new Vector3(Mathf.Lerp(_requestMovePosition.x, hitPoint.x, Mathf.Abs(gravityDir.x)), Mathf.Lerp(_requestMovePosition.y, hitPoint.y, Mathf.Abs(gravityDir.y)), Mathf.Lerp(_requestMovePosition.z, hitPoint.z, Mathf.Abs(gravityDir.z)));
-         _requestMovePosition = (groundSnapDir + (skinOffset * -gravityDir));
-
-     }
-     */
-
-        //=============== smooth transition ===========//
-
-        if (nearestGroundHit.collider != null)
-        {
-            Vector3 closestHitBoundPos = Physics.ClosestPoint(nearestGroundHit.point, cc, rb.position, transform.rotation);// thisCollider.ClosestPoint(nearestHit.point);
-
-            Vector3 _distDifference = (closestHitBoundPos - nearestGroundHit.point) ;
-            _distDifference -= (skinOffset * _distDifference.normalized);
-
-            bool PointIsInsideCollider = false; // cc.bounds.Contains(nearestGroundHit.point);
-            bool IsNotRejectedFromBadPoint = _distDifference.magnitude <= addedDistance;
-
-            bool IsSnapping = IsNotRejectedFromBadPoint && !PointIsInsideCollider; //make sure unity isn't bugged when it can't read ClosestPoint correctly
-            if (IsSnapping)
+            //give a boost
+            bool undoTerrainOffset = false;
+            if (terrainCollisionOffset> 0 && _isGrounded && groundHit.distance <= terrainCollisionOffset)
             {
-                //get any upward difference only
-                Vector3 posGravity = new Vector3(Mathf.Abs(gravityDir.x), Mathf.Abs(gravityDir.y), Mathf.Abs(gravityDir.z));
-                _distDifference = Vector3.Scale(_distDifference, posGravity);
-
-                _requestMovePosition =(rb.position + (skinOffset * -gravityDir) - (_distDifference));  // i dunno why, but SkinOffset fixed cc from going other direction when climbing or dropping from hills
+                //give it a bit of a rise to avoid terrain push
+                //if (VelocityDownward.magnitude == 0) 
+                ModifyPos += (-gravityDir * terrainCollisionOffset);
+                undoTerrainOffset = true;
             }
 
+
+            //col depenetration
+            Vector3 push = CollisionIterationPush(ModifyPos + VelocitySubStep/*, _isGrounded*/);
+            Vector3 Pre_Push = (VelocitySubStep + push);
+            Vector3 Pre_ModifyPos = ModifyPos + Pre_Push;
+
+
+
+            //ground check
+            GroundCheck(Pre_ModifyPos, ref groundHit);
+
+
+            //--------------- minAngle allow ---------------------------------------------//
+            if (GetIsMaxSlopeAngle(groundHit) )
+            {
+
+
+                Vector3 OriPosition = cc.transform.position;
+                //normal towards 
+                Vector3 TowardsDir = (groundHit.point - OriPosition).normalized; //avoid it being zero
+
+                float _towardsAngle = Vector3.Angle(TowardsDir, VelocitySubStep.normalized);
+                Debug.DrawRay(OriPosition, TowardsDir, Color.magenta);
+                //right
+                Vector3 RightDir = Vector3.Cross(TowardsDir, -gravityDir).normalized;
+                float RightDot = Vector3.Dot(RightDir, VelocitySubStep.normalized);
+                if ((RightDot >= -0.02f && RightDot <= 0.02f) || (RightDot >= 0.98f || RightDot <= -0.98f)) RightDir *= 0;
+                else if (RightDot < 0) RightDir *= -1;
+                //Debug.Log(RightDot);
+
+                Debug.DrawRay(OriPosition, RightDir, Color.red);
+
+
+                float _reflectPercSlow = _towardsAngle / 180f;
+                _reflectPercSlow *= 0.9f;
+
+                //choose between going pure right or be slowed down by reflect
+                //ModifyPos += Vector3.Lerp(RightDir * VelocitySubStep.magnitude, Pre_Push * _reflectPercSlow, _reflectPercSlow);
+
+                ModifyPos += Vector3.Lerp(RightDir * VelocitySubStep.magnitude, Pre_Push, _reflectPercSlow);
+            }
+            //regular
+            else
+            {
+              
+                undoTerrainOffset = false;
+                ModifyPos = Pre_ModifyPos;            //modify pos for every step
+            }
+
+            /*
+            if (undoTerrainOffset)
+            {
+                ModifyPos -= (-gravityDir * terrainCollisionOffset);
+            }
+            */
+            // -----------snap ground----------------//
+            if (ActiveSnapToGround && groundRayDist != 0)
+            {
+                Vector3 SnapPush = SnapToGroundPush(ModifyPos);
+                ModifyPos += SnapPush;            //modify pos for every step
+            }
         }
 
-        return _requestMovePosition;
-    }
-    Vector3 ComputePenetrate(Vector3 predictionPos)
-    {
-        //================= physics compute collision push =============================
-        Vector3 _requestMovePosition = Vector3.zero;
 
-        Collider[] neighbours =Physics.OverlapCapsule(rb.position, rb.position+ (transform.up * cc.height),cc. radius *4, obsticleLayer, QueryTriggerInteraction.Ignore);
 
-        int samples = 8;
-        while (samples > 0)
+        // ----------- final col depenetration  ----------------//
+        Vector3 _push = CollisionIterationPush(ModifyPos/*,false*/);
+        ModifyPos += _push;             //modify pos for every step
+                                        //---------------------------//
+
+        //jitter check
+        if (minJitter <= 0 || (ModifyPos - prevPos).magnitude > minJitter)
         {
-            for (int i = 0; i < neighbours.Length; ++i)
+            prevPos = cc.transform.position;
+            cc.transform.position = ModifyPos;
+        }
+    }
+    /// <summary> cache prevPos to compare to jitter threshold </summary>
+    Vector3 prevPos;
+
+
+    /// <param name="currentPos"></param>
+    /// <param name="intendedDirection">when u hold a direction, I don't want the terrain collision to dictate where i'm going</param>
+    Vector3 CollisionIterationPush(Vector3 currentPos, bool intendedDirection = true)
+    {
+        //get colliders
+        Vector3 Center = currentPos + cc.center + (cc.transform.up * (-cc.height * 0.5f));
+        Collider[] colsGather = Physics.OverlapSphere(Center, 10, GameGlobal.instance.groundLayer, QueryTriggerInteraction.Ignore);
+
+        //will modify
+        Vector3 ModifyPos = currentPos;
+
+        //more samples means less vibrates of pushing
+        for (int x = 0; x < collisionSample; x++)
+        {
+            // colsGather = colsGather.OrderBy(x => Random.value).ToArray();
+
+            for (int i = 0; i < colsGather.Length; i++)
             {
-                Collider collider = neighbours[i];
+                Collider ThisCollider = colsGather[i];
+                if (ThisCollider == null) continue;
 
-                if (collider == cc) continue;
+                Vector3 Push_Dir;
+                float Push_Dist;
+                Physics.ComputePenetration(cc, ModifyPos, cc.transform.rotation, ThisCollider, ThisCollider.transform.position, ThisCollider.transform.rotation, out Push_Dir, out Push_Dist);
 
-                Vector3 otherPosition = collider.transform.position;
-                Quaternion otherRotation = collider.transform.rotation;
 
-
-                Vector3 direction;
-                float distance;
-
-                bool overlapped = Physics.ComputePenetration(
-                    cc, predictionPos + _requestMovePosition
-                    , transform.rotation,
-                    collider, otherPosition, otherRotation,
-                    out direction, out distance
-                );
-
-                // draw a line showing the depenetration direction if overlapped
-                if (overlapped)
+                //===========This loosens to push collider on the normals ==========//
+                if (intendedDirection)
                 {
-                    _requestMovePosition += (direction * distance);
-                    //print(_requestMovePosition);
+                    float GravityAnglePerc = Vector3.Angle(Push_Dir, gravityDir) / 145; //is the angle shooting up from the ground.
+                    Push_Dir = Vector3.Lerp(Push_Dir, -gravityDir, GravityAnglePerc).normalized; //if it is, then push it with -gravity direction instead
                 }
+                //=================================================================//
+
+
+                Vector3 push = (Push_Dir * Push_Dist);
+                // if (push.magnitude > 0)
+                // {
+                ModifyPos += push;
+                Debug.DrawLine(currentPos, ModifyPos);
+                // }
             }
-            samples -= 1;
+
         }
-   
-       // _requestMovePosition = new Vector3(Mathf.Lerp(_requestMovePosition.x,0, Mathf.Abs(gravityDir.x)), Mathf.Lerp(_requestMovePosition.y, 0, Mathf.Abs(gravityDir.y)), Mathf.Lerp(_requestMovePosition.z, 0, Mathf.Abs(gravityDir.z))  );
-        return _requestMovePosition;
+
+        //get the difference between the new pos and original pos for push amount
+        Vector3 PushAmount = (ModifyPos - currentPos);
+        return PushAmount;
+
     }
-
-
-    [Header("slope limitation")]
-    [Range(0,89)]
-    [Tooltip("turn off slope limitation when set to 0")]
-    public float minAngle = 50;
-    public float currentAngle;
-
-    Vector3 SlopeLimitation(Vector3 _move)
+    Vector3 SnapToGroundPush(Vector3 CurrentPos)
     {
-        //needs multiple raycast so it doesn't detect small edges
 
-        currentAngle = Vector3.Angle(-gravityDir, hitNormalsFixed);
+        //get ground collider
+        GroundCheck(CurrentPos, ref groundHit);
 
-        bool CanSlopeDetect = minAngle > 0;
-        if (nearestGroundHit.collider != null && currentAngle > minAngle && currentAngle<90 && CanSlopeDetect)
+        //get ground
+        if (groundHit.collider != null)
         {
-            
-            Vector3 XYNormals = new Vector3(
-                Mathf.Lerp(hitNormalsFixed.x, 0,Mathf.Abs( gravityDir.x)) ,
-                Mathf.Lerp(hitNormalsFixed.y, 0, Mathf.Abs(gravityDir.y)),
-                Mathf.Lerp(hitNormalsFixed.z, 0, Mathf.Abs(gravityDir.z))
-                ).normalized;
-            Debug.DrawRay(rb.position, XYNormals.normalized);
-            
-            Vector3 crossForwd = Vector3.Cross(hitNormalsFixed, -gravityDir.normalized).normalized;
-            Debug.DrawRay(rb.position, crossForwd);
-            Vector3 crossDown = Vector3.Cross(hitNormalsFixed, crossForwd).normalized;
-            Debug.DrawRay(rb.position, crossDown.normalized);
 
-            float rawPerc = (Vector3.Angle(-XYNormals, _move) ) / (180 );
-            float perc = (Vector3.Angle(-XYNormals, _move)) / (180);
-            if (perc <= 0.5f) perc = 0;
-            // Vector3 subtract =Vector3.Slerp (( Vector3.ProjectOnPlane( _move.normalized, XYNormals)).normalized , _move.normalized, rawPerc);
-            Vector3 subtract = Vector3.ProjectOnPlane(_move.normalized,Vector3.Lerp( XYNormals , -gravityDir, perc));
+            Vector3 ClosestPoint = Physics.ClosestPoint(groundHit.point, cc, CurrentPos, cc.transform.rotation);
+            Debug.DrawLine(groundHit.point, ClosestPoint, Color.yellow);
 
-            // Vector3 subtract = Vector3.Slerp((crossDown.normalized), _move.normalized, Vector3.Angle(-XYNormals, _move) / 180);
-            Vector3 _reflect = (subtract * _move.magnitude) ;
-             //Vector3 _reflect = crossDown.normalized *_move.magnitude;
+            //Vector3 Difference = (groundHit.point - ClosestPoint);
+            Vector3 Difference = (groundHit.distance * gravityDir);
 
-
-            return _reflect;
+            return Difference;
         }
         else
         {
-            return _move;
+            return Vector3.zero;
         }
     }
-
-
-    [Space()]
-    public Vector3 gravityDir = -Vector3.up;
-    public float gravityPow = 4;
-    Vector3 dirMove;
-    Vector3 dirMoveSmooth;
-    public float speed = 10;
-    void  InputControls()
+    void GroundCheck(Vector3 CurrentPos, ref RaycastHit ThisRayHit)
     {
-        Camera cam = Camera.main;
+        Vector3 p1;
+        Vector3 p2;
+        GetCapsuleStartEndPoints(cc, CurrentPos, out p1, out p2);
+        Physics.CapsuleCast(p1, p2, cc.radius - 0.001f, gravityDir, out ThisRayHit, groundRayDist, GameGlobal.instance.groundLayer, QueryTriggerInteraction.Ignore);
 
-        Vector3 crossForwd = Vector3.Cross(cam.transform.right, -gravityDir);
-        Vector3 crossRight = Vector3.Cross(-gravityDir, crossForwd);
-
-        dirMove = ((crossForwd * inputReciever.GetMoveAxis.y) + (crossRight * inputReciever.GetMoveAxis.x));
-
-        dirMoveSmooth = Vector3.Lerp(dirMoveSmooth, dirMove, Time.deltaTime * 6);
-        dirMoveSmooth = Vector3.ProjectOnPlane(dirMoveSmooth, -gravityDir);
-
-        //move
-        //bool UseRootMover_Move = animRootMover != null && animRootMover.rootMotion.useRootMotion;
-        //if (UseRootMover_Move)
-        //{
-         //   Move(animRootMover.deltaPos);
-        //}
-        //else
-        //{
-            Vector3 _move = (dirMoveSmooth * speed * Time.fixedDeltaTime);
-            Move(_move);
-        //}
-        //rotate
-       // bool UseRootMover_Rotate = animRootMover != null && animRootMover.rootMotion.useRootMotion;
-       // if (UseRootMover_Rotate)
-       // {
-       //     rb.rotation *= animRootMover.deltaRotation;
-       // }
-       // bool CanRotate = animRootMover == null || (animRootMover != null && !animRootMover.rootMotion.useRootMotion) || (animRootMover != null && animRootMover.rootMotion.enableInputRotate);
-       // if (CanRotate)
-       // {
-            if (dirMoveSmooth != Vector3.zero)
-            {
-                rb.rotation = Quaternion.Lerp(rb.rotation, Quaternion.LookRotation(dirMoveSmooth, -gravityDir), Time.fixedDeltaTime * 20);
-            }
-       // }
+        Debug.DrawRay(ThisRayHit.point, ThisRayHit.normal, Color.green);
     }
 
 
 
+    ///----------- tools --------------------//
 
-
-
-
-    /// <summary>
-    /// if spherecast or capsule cast hits an edge of the box, it interpolates the normals. use this to get the correct normal
-    /// </summary>
-    /// <returns></returns>
     public Vector3 RepairHitSurfaceNormal(RaycastHit hit)
     {
-        /*
-        if (hit.collider is MeshCollider && (hit.collider as MeshCollider).sharedMesh.isReadable)
+        RaycastHit repairHit;
+        Vector3 normalsAvg = Vector3.zero;
+        int i = 0;
+        while (i < 3)
         {
-            var collider = hit.collider as MeshCollider;
-            var mesh = collider.sharedMesh;
-            var tris = mesh.triangles;
-            var verts = mesh.vertices;
+            Vector3 rightCross = Vector3.Cross(-hit.normal, -gravityDir).normalized;
 
-            var v0 = verts[tris[hit.triangleIndex * 3]];
-            var v1 = verts[tris[hit.triangleIndex * 3 + 1]];
-            var v2 = verts[tris[hit.triangleIndex * 3 + 2]];
+            var p = hit.point + (hit.normal * 0.1f);
+            if (i == 1) p += rightCross * 0.1f;
+            else if (i == 2) p -= rightCross * 0.1f;
 
-            var n = Vector3.Cross(v1 - v0, v2 - v1).normalized;
-
-            return hit.transform.TransformDirection(n);
+            Ray ray = new Ray(p, -hit.normal);
+            hit.collider.Raycast(ray, out repairHit, 0.11f);
+            if (repairHit.collider != null)
+            {
+                Debug.DrawRay(repairHit.point, repairHit.normal, Color.cyan);
+                normalsAvg += repairHit.normal;
+                i++;
+            }
+            else
+            {
+                break;
+            }
         }
-        else
-        {*/
+        if (i >= 3) normalsAvg = (normalsAvg / (i + 1)).normalized;
+        else normalsAvg = Vector3.zero;
 
-        var p = hit.point + (hit.normal * 0.01f);
+        return normalsAvg;
+    }
+    /*    public Vector3 RepairHitSurfaceNormal(RaycastHit hit)
+    {
+        var p = hit.point + (hit.normal * 0.1f);
         Ray ray = new Ray(p, -hit.normal);
-        hit.collider.Raycast(ray, out hit, 0.015f);
+        RaycastHit repairHit;
+        hit.collider.Raycast(ray, out repairHit, 0.15f);
 
-        Debug.DrawRay(hit.point, hit.normal, Color.yellow);
+        Debug.DrawRay(repairHit.point, repairHit.normal, Color.cyan);
 
-        return hit.normal;
-        // }
+        return repairHit.normal;
+    }*/
+
+    /// <param name="thisCC"></param>
+    /// <param name="thisPos"></param>
+    /// <param name="heightShrink">needs a small number like -0.05f cause unity may cast outside the capsule height</param>
+    /// <param name="p1">start with radius offset</param>
+    /// <param name="p2">end with radius offset</param>
+    void GetCapsuleStartEndPoints(CapsuleCollider thisCC, Vector3 thisPos, out Vector3 p1, out Vector3 p2)
+    {
+        p1 = thisPos + thisCC.transform.TransformDirection(  thisCC.center) + (thisCC.transform.up * (((-thisCC.height /*- heightShrink*/) * 0.5f) + cc.radius));
+        p2 = p1 + (thisCC.transform.up * ((thisCC.height/* + heightShrink*/) * 0.5f));
     }
 
 
 
+
+
+
+
+
+
+RaycastHit currentGroundHit;
+    public bool isGrounded { get { return currentGroundHit.collider != null; } }
+
+    float GetGroundAngle (RaycastHit _hit) { return (_hit.collider != null) ? Vector3.Angle(_hit.normal, -gravityDir) : 0; }
+    bool IsEdgeStep(RaycastHit _hit)
+    {
+        if (_hit.collider != null)
+        {
+            Vector3 RepairNormals = RepairHitSurfaceNormal(_hit);
+            float RepairNormalsAngle = Vector3.Angle(RepairNormals, -gravityDir);
+            //  Debug.Log("RepairNormalsAngle " + RepairNormalsAngle);
+            return RepairNormals != Vector3.zero && RepairNormalsAngle != GetGroundAngle(_hit) && ((RepairNormalsAngle >= 70 && RepairNormalsAngle <= 110) || RepairNormalsAngle == 0);
+        }
+        return false;
+    }
+    bool GetIsMaxSlopeAngle(RaycastHit _hit)
+    {
+        return (_hit.collider != null && !IsEdgeStep(_hit) && minAngle > 0) ? GetGroundAngle(_hit) >= minAngle : false;
+    }
+
+    public bool IsMaxSlopeAngle { get { return GetIsMaxSlopeAngle(currentGroundHit); } }
 
 
     Coroutine PlatformingDelta_C;
@@ -338,59 +340,68 @@ public class kinemRbMotor : MonoBehaviour
     {
         while (true)
         {
-            if (platformingTr == null) platformingTr = new GameObject("_platformDelta_" + this.transform.name).transform;
+            GroundCheck(cc.transform.position, ref currentGroundHit);
 
-            if (nearestGroundHit.collider != null)
+            if (platformingTr == null)
             {
-                //setup for frame delta
-                if (!platformingTr.IsChildOf(nearestGroundHit.collider.transform)) platformingTr.parent = nearestGroundHit.collider.transform;
-                platformingTr.transform.position = rb.position;
-                deltaMove = platformingTr.transform.position;
-
-                platformingTr.transform.rotation = rb.rotation;
-                deltaQuaturnian = platformingTr.transform.rotation;
-                deltaEulre = platformingTr.transform.eulerAngles;
-
+                platformingTr = new GameObject("_platformDelta_" + this.transform.name).transform;
                 yield return null;
-
-                //get delta calc
-                bool PosChanged = deltaMove != platformingTr.transform.position;
-                deltaMove = platformingTr.transform.position - deltaMove;
-                if (PosChanged) rb.position += deltaMove;
-
-                /*if (rotatePlatformingSurfaceUp || worldUpType == WorldUpType.RelativeUp)
+            }
+            if (platformingTr != null)
+            {
+                if (currentGroundHit.collider != null)
                 {
+                    //setup for frame delta
+                    if (!platformingTr.IsChildOf(currentGroundHit.collider.transform)) platformingTr.parent = currentGroundHit.collider.transform;
+                    platformingTr.transform.position = cc.transform.position;
+                    deltaMove = platformingTr.transform.position;
 
-                    bool RotChanged = deltaEulre != platformingTr.transform.eulerAngles;
-                    deltaEulre = platformingTr.transform.eulerAngles - deltaEulre;
+                    platformingTr.transform.rotation = cc.transform.rotation;
+                    deltaQuaturnian = platformingTr.transform.rotation;
+                    deltaEulre = platformingTr.transform.eulerAngles;
 
-                    if (RotChanged) rb.MoveRotation(Quaternion.Euler(deltaEulre) * Quaternion.FromToRotation(cc.transform.up, GetReletiveUp()) * rb.rotation);
+                    yield return null;
+                    if (platformingTr != null) {
 
+                        //get delta calc
+                        bool PosChanged = deltaMove != platformingTr.transform.position;
+                        deltaMove = platformingTr.transform.position - deltaMove;
+                        if (PosChanged) cc.transform.position += deltaMove;
+
+                        /*if (rotatePlatformingSurfaceUp || worldUpType == WorldUpType.RelativeUp)
+                        {
+
+                            bool RotChanged = deltaEulre != platformingTr.transform.eulerAngles;
+                            deltaEulre = platformingTr.transform.eulerAngles - deltaEulre;
+
+                            if (RotChanged) rb.MoveRotation(Quaternion.Euler(deltaEulre) * Quaternion.FromToRotation(cc.transform.up, GetReletiveUp()) * rb.rotation);
+
+                        }
+                        else
+                        {*/
+                        bool RotChanged = deltaEulre != platformingTr.transform.eulerAngles;
+                        deltaEulre = platformingTr.transform.eulerAngles - deltaEulre;
+                        deltaEulre.x = 0;
+                        deltaEulre.z = 0;
+
+                        //  if (RotChanged) transform.rotation =(Quaternion.Euler(deltaEulre) * Quaternion.FromToRotation(cc.transform.up, -gravityDir) * transform.rotation);
+                        if (RotChanged)
+                        {
+                            cc.transform.rotation = (Quaternion.Euler(deltaEulre) * transform.rotation);
+                            if (rotatePlatformingSurfaceUp) cc.transform.rotation = Quaternion.FromToRotation(cc.transform.up, -gravityDir) * transform.rotation;
+                        }
+                        // }
+                    }
                 }
                 else
-                {*/
-                bool RotChanged = deltaEulre != platformingTr.transform.eulerAngles;
-                deltaEulre = platformingTr.transform.eulerAngles - deltaEulre;
-                deltaEulre.x = 0;
-                deltaEulre.z = 0;
-
-                //  if (RotChanged) transform.rotation =(Quaternion.Euler(deltaEulre) * Quaternion.FromToRotation(cc.transform.up, -gravityDir) * transform.rotation);
-                if (RotChanged)
                 {
-                    rb.rotation = (Quaternion.Euler(deltaEulre) * transform.rotation);
-                    if (rotatePlatformingSurfaceUp) rb.rotation = Quaternion.FromToRotation(cc.transform.up, -gravityDir) * transform.rotation;
+                    //restart
+                    platformingTr.parent = cc.transform;
+                    platformingTr.localPosition = Vector3.zero;
+                    platformingTr.localRotation = Quaternion.identity;
+                    yield return null;
                 }
-                // }
             }
-            else
-            {
-                //restart
-                platformingTr.parent = cc.transform;
-                platformingTr.localPosition = Vector3.zero;
-                platformingTr.localRotation = Quaternion.identity;
-                yield return null;
-            }
-
             //do not put yeild return null as that would lag on build
         }
     }
