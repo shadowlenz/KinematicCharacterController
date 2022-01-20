@@ -1,7 +1,7 @@
 using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
-using System.Linq;
+
 [RequireComponent(typeof(CapsuleCollider))]
 [RequireComponent(typeof(Rigidbody))]
 public class kinemRbMotor : MonoBehaviour
@@ -18,7 +18,7 @@ public class kinemRbMotor : MonoBehaviour
     [Tooltip("calculate x amount of times that pushes away from the collider")]
     public int collisionSample = 8;
     [Header("correction")]
-    public float terrainCollisionOffset = 0.05f;
+    public float terrainCollisionOffset = 0.1f;
     public float minJitter = 0.02f;
 
     [Header("ground ray")]
@@ -67,15 +67,20 @@ public class kinemRbMotor : MonoBehaviour
             bool _isGrounded = groundHit.collider != null;
 
             //give a boost
-            bool undoTerrainOffset = false;
+        
             if (terrainCollisionOffset> 0 && _isGrounded && groundHit.distance <= terrainCollisionOffset)
             {
                 //give it a bit of a rise to avoid terrain push
                 //if (VelocityDownward.magnitude == 0) 
                 ModifyPos += (-gravityDir * terrainCollisionOffset);
-                undoTerrainOffset = true;
+            
             }
-
+            // -----------snap ground----------------//
+            if (ActiveSnapToGround && groundRayDist != 0)
+            {
+                Vector3 SnapPush = SnapToGroundPush(ModifyPos);
+                ModifyPos += SnapPush;            //modify pos for every step
+            }
 
             //col depenetration
             Vector3 push = CollisionIterationPush(ModifyPos + VelocitySubStep/*, _isGrounded*/);
@@ -121,7 +126,7 @@ public class kinemRbMotor : MonoBehaviour
             else
             {
               
-                undoTerrainOffset = false;
+     
                 ModifyPos = Pre_ModifyPos;            //modify pos for every step
             }
 
@@ -131,16 +136,16 @@ public class kinemRbMotor : MonoBehaviour
                 ModifyPos -= (-gravityDir * terrainCollisionOffset);
             }
             */
-            // -----------snap ground----------------//
-            if (ActiveSnapToGround && groundRayDist != 0)
-            {
-                Vector3 SnapPush = SnapToGroundPush(ModifyPos);
-                ModifyPos += SnapPush;            //modify pos for every step
-            }
+
         }
 
 
-
+        // -----------final snap ground----------------//
+        if (ActiveSnapToGround && groundRayDist != 0)
+        {
+            Vector3 SnapPush = SnapToGroundPush(ModifyPos);
+            ModifyPos += SnapPush;            //modify pos for every step
+        }
         // ----------- final col depenetration  ----------------//
         Vector3 _push = CollisionIterationPush(ModifyPos/*,false*/);
         ModifyPos += _push;             //modify pos for every step
