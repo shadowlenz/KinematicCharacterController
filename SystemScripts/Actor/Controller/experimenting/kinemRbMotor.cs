@@ -127,16 +127,16 @@ public class kinemRbMotor : MonoBehaviour
                 ModifyPos -= (-gravityDir * terrainCollisionOffset);
             }
             */
+            // -----------final snap ground----------------//
+            if (ActiveSnapToGround && groundRayDist != 0)
+            {
+                ModifyPos += SnapToGroundPush(ModifyPos);  //modify pos for every step
+            }
 
         }
 
 
-        // -----------final snap ground----------------//
-        if (ActiveSnapToGround && groundRayDist != 0)
-        {
-            Vector3 SnapPush = SnapToGroundPush(ModifyPos);
-            ModifyPos += SnapPush;            //modify pos for every step
-        }
+
         // ----------- final col depenetration  ----------------//
         Vector3 _push = CollisionIterationPush(ModifyPos/*,false*/);
         ModifyPos += _push;             //modify pos for every step
