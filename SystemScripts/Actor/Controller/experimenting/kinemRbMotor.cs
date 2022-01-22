@@ -219,7 +219,8 @@ public class kinemRbMotor : MonoBehaviour
               */
 
             float difference = (groundHit.distance - smallValCompensation - (0.01f)); //requires a stupid small number offset?
-            Debug.Log("difference?" + difference);
+            if (difference<0) return Vector3.zero;
+          //  Debug.Log("difference?" + difference);
    
 
 
