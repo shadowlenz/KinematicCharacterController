@@ -211,21 +211,27 @@ public class kinemRbMotor : MonoBehaviour
         //get ground
         if (groundHit.collider != null)
         {
-
+            /*
             Vector3 ClosestPoint = Physics.ClosestPoint(groundHit.point, cc, CurrentPos, cc.transform.rotation);
             Debug.DrawLine(groundHit.point, ClosestPoint, Color.yellow);
 
-            //Vector3 Difference = (groundHit.point - ClosestPoint);
-            Vector3 Difference = ((groundHit.distance - smallValCompensation) * gravityDir);
+            return (groundHit.point - ClosestPoint);
+              */
 
-            return Difference;
+            float difference = (groundHit.distance - smallValCompensation - (0.01f)); //requires a stupid small number offset?
+            Debug.Log("difference?" + difference);
+   
+
+
+            return (difference * gravityDir);
+          
         }
         else
         {
             return Vector3.zero;
         }
     }
-    float smallValCompensation = 0.01f;
+    float smallValCompensation = 0.008f;
     void GroundCheck(Vector3 CurrentPos, ref RaycastHit ThisRayHit)
     {
         Vector3 p1;
