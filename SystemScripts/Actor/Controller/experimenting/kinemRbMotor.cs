@@ -41,10 +41,6 @@ public class kinemRbMotor : MonoBehaviour
         PlatformingDelta_C = StartCoroutine(PlatformingDelta());
     }
 
-    private void OnDestroy()
-    {
-        if (platformingTr != null) Destroy(platformingTr.gameObject);
-    }
 
     public void Update()
     {
@@ -75,12 +71,7 @@ public class kinemRbMotor : MonoBehaviour
                 ModifyPos += (-gravityDir * terrainCollisionOffset);
             
             }
-            // -----------snap ground----------------//
-            if (ActiveSnapToGround && groundRayDist != 0)
-            {
-                Vector3 SnapPush = SnapToGroundPush(ModifyPos);
-                ModifyPos += SnapPush;            //modify pos for every step
-            }
+     
 
             //col depenetration
             Vector3 push = CollisionIterationPush(ModifyPos + VelocitySubStep/*, _isGrounded*/);
@@ -240,7 +231,7 @@ public class kinemRbMotor : MonoBehaviour
         Vector3 p1;
         Vector3 p2;
         GetCapsuleStartEndPoints(cc, CurrentPos, out p1, out p2);
-        Physics.CapsuleCast(p1, p2, cc.radius - 0.001f, gravityDir, out ThisRayHit, groundRayDist, GameGlobal.instance.groundLayer, QueryTriggerInteraction.Ignore);
+        Physics.CapsuleCast(p1, p2, cc.radius - 0.01f, gravityDir, out ThisRayHit, groundRayDist, GameGlobal.instance.groundLayer, QueryTriggerInteraction.Ignore);
 
         Debug.DrawRay(ThisRayHit.point, ThisRayHit.normal, Color.green);
     }
@@ -253,6 +244,7 @@ public class kinemRbMotor : MonoBehaviour
     {
         RaycastHit repairHit;
         Vector3 normalsAvg = Vector3.zero;
+
         int i = 0;
         while (i < 3)
         {
@@ -334,80 +326,52 @@ RaycastHit currentGroundHit;
     public bool IsMaxSlopeAngle { get { return GetIsMaxSlopeAngle(currentGroundHit); } }
 
 
-    Coroutine PlatformingDelta_C;
-    Transform platformingTr;
-    Vector3 deltaMove;
-    Quaternion deltaQuaturnian;
-    Vector3 deltaEulre;
+
     [Header("Platforming")]
+    public bool activePlatformMoving = true;
     public bool rotatePlatformingSurfaceUp; //character would rotate like inception
+
+    Coroutine PlatformingDelta_C;
+
+
+    Quaternion? lastRot;
+    Collider curFloorCol;
     IEnumerator PlatformingDelta()
     {
         while (true)
         {
             GroundCheck(cc.transform.position, ref currentGroundHit);
 
-            if (platformingTr == null)
+            if (activePlatformMoving)
             {
-                platformingTr = new GameObject("_platformDelta_" + this.transform.name).transform;
-                yield return null;
-            }
-            if (platformingTr != null)
-            {
-                if (currentGroundHit.collider != null)
+                if (currentGroundHit.collider != null && curFloorCol == currentGroundHit.collider && currentGroundHit.rigidbody != null)
                 {
-                    //setup for frame delta
-                    if (!platformingTr.IsChildOf(currentGroundHit.collider.transform)) platformingTr.parent = currentGroundHit.collider.transform;
-                    platformingTr.transform.position = cc.transform.position;
-                    deltaMove = platformingTr.transform.position;
+                    //pos
+                    Vector3 relVel = currentGroundHit.rigidbody.GetPointVelocity(currentGroundHit.point);
+                    cc.transform.position += relVel * Time.fixedDeltaTime;
 
-                    platformingTr.transform.rotation = cc.transform.rotation;
-                    deltaQuaturnian = platformingTr.transform.rotation;
-                    deltaEulre = platformingTr.transform.eulerAngles;
+                    //rot
+                    Quaternion newRot = currentGroundHit.rigidbody.rotation;
+                    if (lastRot.HasValue)
+                    {
+                        Quaternion deltaEular = newRot * Quaternion.Inverse(lastRot.Value);
+                        cc.transform.rotation = deltaEular * cc.transform.rotation;
 
-                    yield return null;
-                    if (platformingTr != null) {
 
-                        //get delta calc
-                        bool PosChanged = deltaMove != platformingTr.transform.position;
-                        deltaMove = platformingTr.transform.position - deltaMove;
-                        if (PosChanged) cc.transform.position += deltaMove;
+                        Vector3 _revUp = rotatePlatformingSurfaceUp ? currentGroundHit.normal : -gravityDir;
+                        cc.transform.rotation = Quaternion.FromToRotation(cc.transform.up, _revUp) * cc.transform.rotation;
 
-                        /*if (rotatePlatformingSurfaceUp || worldUpType == WorldUpType.RelativeUp)
-                        {
-
-                            bool RotChanged = deltaEulre != platformingTr.transform.eulerAngles;
-                            deltaEulre = platformingTr.transform.eulerAngles - deltaEulre;
-
-                            if (RotChanged) rb.MoveRotation(Quaternion.Euler(deltaEulre) * Quaternion.FromToRotation(cc.transform.up, GetReletiveUp()) * rb.rotation);
-
-                        }
-                        else
-                        {*/
-                        bool RotChanged = deltaEulre != platformingTr.transform.eulerAngles;
-                        deltaEulre = platformingTr.transform.eulerAngles - deltaEulre;
-                        deltaEulre.x = 0;
-                        deltaEulre.z = 0;
-
-                        //  if (RotChanged) transform.rotation =(Quaternion.Euler(deltaEulre) * Quaternion.FromToRotation(cc.transform.up, -gravityDir) * transform.rotation);
-                        if (RotChanged)
-                        {
-                            cc.transform.rotation = (Quaternion.Euler(deltaEulre) * transform.rotation);
-                            if (rotatePlatformingSurfaceUp) cc.transform.rotation = Quaternion.FromToRotation(cc.transform.up, -gravityDir) * transform.rotation;
-                        }
-                        // }
                     }
+                    lastRot = newRot;
                 }
                 else
                 {
-                    //restart
-                    platformingTr.parent = cc.transform;
-                    platformingTr.localPosition = Vector3.zero;
-                    platformingTr.localRotation = Quaternion.identity;
-                    yield return null;
+                    lastRot = null;
+                    curFloorCol = currentGroundHit.collider;
                 }
             }
-            //do not put yeild return null as that would lag on build
+
+            yield return new WaitForFixedUpdate();
         }
     }
 }
