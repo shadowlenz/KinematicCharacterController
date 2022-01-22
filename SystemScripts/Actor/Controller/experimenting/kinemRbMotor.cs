@@ -74,9 +74,9 @@ public class kinemRbMotor : MonoBehaviour
      
 
             //col depenetration
-            Vector3 push = CollisionIterationPush(ModifyPos + VelocitySubStep/*, _isGrounded*/);
-            Vector3 Pre_Push = (VelocitySubStep + push);
-            Vector3 Pre_ModifyPos = ModifyPos + Pre_Push;
+            Vector3 depenetrationPush = CollisionIterationPush(ModifyPos + VelocitySubStep/*, _isGrounded*/);
+            Vector3 depenetrationVelSubStep = (VelocitySubStep + depenetrationPush);
+            Vector3 Pre_ModifyPos = ModifyPos + depenetrationVelSubStep;
 
 
 
@@ -111,7 +111,7 @@ public class kinemRbMotor : MonoBehaviour
                 //choose between going pure right or be slowed down by reflect
                 //ModifyPos += Vector3.Lerp(RightDir * VelocitySubStep.magnitude, Pre_Push * _reflectPercSlow, _reflectPercSlow);
 
-                ModifyPos += Vector3.Lerp(RightDir * VelocitySubStep.magnitude, Pre_Push, _reflectPercSlow);
+                ModifyPos = Vector3.Lerp(ModifyPos +(RightDir * VelocitySubStep.magnitude), Pre_ModifyPos, _reflectPercSlow);
             }
             //regular
             else
@@ -127,7 +127,7 @@ public class kinemRbMotor : MonoBehaviour
                 ModifyPos -= (-gravityDir * terrainCollisionOffset);
             }
             */
-            // -----------final snap ground----------------//
+            // ----------- snap ground----------------//
             if (ActiveSnapToGround && groundRayDist != 0)
             {
                 ModifyPos += SnapToGroundPush(ModifyPos);  //modify pos for every step
@@ -138,8 +138,7 @@ public class kinemRbMotor : MonoBehaviour
 
 
         // ----------- final col depenetration  ----------------//
-        Vector3 _push = CollisionIterationPush(ModifyPos/*,false*/);
-        ModifyPos += _push;             //modify pos for every step
+        ModifyPos += CollisionIterationPush(ModifyPos/*,false*/);           //modify pos for every step
                                         //---------------------------//
 
         //jitter check
@@ -217,7 +216,7 @@ public class kinemRbMotor : MonoBehaviour
             Debug.DrawLine(groundHit.point, ClosestPoint, Color.yellow);
 
             //Vector3 Difference = (groundHit.point - ClosestPoint);
-            Vector3 Difference = (groundHit.distance * gravityDir);
+            Vector3 Difference = ((groundHit.distance - smallValCompensation) * gravityDir);
 
             return Difference;
         }
@@ -226,12 +225,13 @@ public class kinemRbMotor : MonoBehaviour
             return Vector3.zero;
         }
     }
+    float smallValCompensation = 0.01f;
     void GroundCheck(Vector3 CurrentPos, ref RaycastHit ThisRayHit)
     {
         Vector3 p1;
         Vector3 p2;
         GetCapsuleStartEndPoints(cc, CurrentPos, out p1, out p2);
-        Physics.CapsuleCast(p1, p2, cc.radius - 0.01f, gravityDir, out ThisRayHit, groundRayDist, GameGlobal.instance.groundLayer, QueryTriggerInteraction.Ignore);
+        Physics.CapsuleCast(p1, p2, cc.radius - smallValCompensation, gravityDir, out ThisRayHit, groundRayDist, GameGlobal.instance.groundLayer, QueryTriggerInteraction.Ignore);
 
         Debug.DrawRay(ThisRayHit.point, ThisRayHit.normal, Color.green);
     }
